@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weather Now Dashboard</title>
+<style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #24292e; background-color: #f6f8fa; margin: 0; padding: 2rem; }
+    .container { max-width: 850px; margin: 0 auto; background: #ffffff; padding: 40px 50px; border-radius: 6px; box-shadow: 0 1px 3px rgba(27,31,35,0.12); }
+    h1, h2, h3 { margin-top: 24px; margin-bottom: 16px; font-weight: 600; line-height: 1.25; }
+    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: .3em; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: .3em; margin-top: 1.5em; }
+    h3 { font-size: 1.25em; margin-top: 1.5em; }
+    p, ul, ol { margin-top: 0; margin-bottom: 16px; }
+    code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; padding: .2em .4em; margin: 0; font-size: 85%; background-color: #1b1f230d; border-radius: 3px; }
+    pre { word-wrap: normal; background-color: #f6f8fa; border-radius: 3px; padding: 16px; overflow: auto; line-height: 1.45; }
+    pre code { display: inline; max-width: auto; padding: 0; margin: 0; overflow: visible; line-height: inherit; word-wrap: normal; background-color: transparent; border: 0; }
+    .warning { background-color: #fffbdd; border-left: 4px solid #e3cc00; padding: 16px; margin-bottom: 16px; color: #735c0f; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Weather Now Dashboard</h1>
+    
+    <div class="warning">
+        <strong>This repository is automated via a Synology NAS. Do not edit files directly on GitHub, as they will be forcefully overwritten every 15 minutes by the NAS update.sh script.</strong>
+    </div>
+
+    <p>A custom, highly intelligent weather dashboard built specifically for the TRMNL e-ink display. It features dynamic forecasting summaries, intelligent array slicing for future time-blocks, and WMO weather-code text mapping.</p>
+
+    <h2>The Problem (Why this architecture exists)</h2>
+    <p>This project relies on the free tier of the Open-Meteo API. Open-Meteo tracks and rate-limits based on IP addresses. Running dynamic Javascript or a Liquid Webhook directly from TRMNL's shared German servers results in an immediate IP ban because Open-Meteo flags the datacenter IP as spam. This previously caused the TRMNL device to get permanently stuck or crash into a "Degraded State".</p>
+
+    <h2>Architecture: The "Zero-Bloat, Zero-Ban" Strategy</h2>
+    <p>To bypass the IP ban without paying for an Open-Meteo Developer API key, this dashboard uses a local Synology NAS as a hardware bridge:</p>
+    <ol>
+        <li><strong>Fetch:</strong> The Synology NAS wakes up every 15 minutes. It runs a Python script to fetch data from Open-Meteo using a <strong>residential home IP address</strong>, which is entirely immune to datacenter rate limits.</li>
+        <li><strong>Build:</strong> The Python script injects the raw JSON data directly into a static HTML/JS template, generating a fully finalized, static <code>index.html</code> file locally.</li>
+        <li><strong>Deploy:</strong> A bash script pushes this <code>index.html</code> file to GitHub Pages via SSH.</li>
+        <li><strong>Zero-Bloat History:</strong> To prevent 35,000 automated commits a year from bloating the repository, the bash script uses <code>git commit --amend</code> and <code>git push --force</code>. This rewrites the exact same commit in perpetuity. The repository history will permanently remain at 1 commit.</li>
+        <li><strong>Display:</strong> The TRMNL device uses the "Screenshot" plugin to photograph the static GitHub Pages URL. Because the HTML is pre-rendered, there is zero asynchronous loading time, and TRMNL captures a flawless image instantly.</li>
+    </ol>
+
+    <hr>
+
+    <h2>File Directory &amp; Server Paths</h2>
+    <p>All files are stored on the Synology NAS at the following absolute path:<br>
+    <code>/var/services/homes/alex/scripts/weathernow/</code></p>
+    
+    <ul>
+        <li><strong><code>build.py</code></strong>: The Python generator. Uses standard libraries (<code>urllib</code>, <code>json</code>) to ensure it runs natively on Synology without requiring <code>pip</code> package installations.</li>
+        <li><strong><code>update.sh</code></strong>: The bash script triggered by the Synology Task Scheduler. Handles the Git force-pushing.</li>
+        <li><strong><code>index.html</code></strong>: The compiled, static webpage. <em>(Auto-generated, do not edit manually).</em></li>
+        <li><strong><code>README.md</code></strong>: This documentation file.</li>
+    </ul>
+
+    <div class="warning">
+        <strong>⚠️ CRITICAL WARNING REGARDING EDITS: ⚠️</strong><br>
+        <strong>Never edit any files directly on the GitHub website.</strong> Because the Synology NAS uses a forceful <code>--amend</code> push, the NAS acts as the absolute master record. If you edit this README or the HTML code on GitHub.com, your changes will be permanently overwritten and destroyed the next time the NAS updates the weather (every 15 minutes). <strong>All code and documentation edits MUST be made locally on the Synology NAS.</strong>
+    </div>
+
+    <hr>
+
+    <h2>Future Maintenance Requirements</h2>
+    <p>This system is designed for extreme long-term stability. The theoretical maintenance points are:</p>
+    <ol>
+        <li><strong>SSH Deploy Key (Permanent):</strong> The NAS authenticates with GitHub using an ED25519 SSH Deploy Key. Unlike Personal Access Tokens (PATs), this key <strong>does not expire</strong>. No yearly rotation is required.</li>
+        <li><strong>Synology DSM Major Updates:</strong> If you upgrade your Synology to a new major DSM version, ensure that <strong>Git Server</strong> and <strong>Python 3</strong> remain installed and active in the Package Center.</li>
+        <li><strong>Open-Meteo API Versioning:</strong> The script currently points to Open-Meteo <code>v1</code>. If Open-Meteo eventually deprecates <code>v1</code> for <code>v2</code>, the URL string inside <code>build.py</code> will need to be manually updated.</li>
+    </ol>
+
+    <hr>
+
+    <h2>Troubleshooting Guide</h2>
+
+    <h3>1. TRMNL Screen is stuck on old weather</h3>
+    <ul>
+        <li><strong>Diagnosis A (GitHub CDN Lag):</strong> GitHub Pages sits behind Fastly's global CDN. Occasionally, caching takes 1-3 minutes to clear. This is normal.</li>
+        <li><strong>Diagnosis B (Open-Meteo Outage):</strong> If Open-Meteo's API goes down, <code>build.py</code> is programmed to "fail silently." It leaves the previous <code>index.html</code> intact so your screen doesn't show a broken error, but the time will freeze. Visit <code>https://api.open-meteo.com</code> in a browser to check their status.</li>
+        <li><strong>Diagnosis C (Synology Network Drop):</strong> If your NAS temporarily lost internet access at the 15-minute mark, the push failed. It will retry automatically on the next 15-minute cycle.</li>
+    </ul>
+
+    <h3>2. Synology Task Scheduler is Failing</h3>
+    <ul>
+        <li><strong>Symptom:</strong> The weather hasn't updated in hours, Open-Meteo is online, and GitHub Pages is active.</li>
+        <li><strong>Fix:</strong> Open DSM <strong>Control Panel</strong> &gt; <strong>Task Scheduler</strong>. Select the Weather task, click <strong>Action</strong> &gt; <strong>View Result</strong>. Look at the script output.</li>
+        <li><strong>Common Error (<code>Permission denied (publickey)</code>):</strong> The Task Scheduler is likely running under a different user profile than the one that owns the SSH keys. Ensure the "User" in Task Scheduler exactly matches <code>alex</code>.</li>
+    </ul>
+
+    <h3>3. The Screen is Blank or Showing a 404 Error</h3>
+    <ul>
+        <li><strong>Symptom:</strong> TRMNL shows a generic error or a white screen.</li>
+        <li><strong>Fix:</strong> Visit the GitHub Pages URL (<code>https://alexroddie.github.io/weathernow/index.html</code>) on your smartphone. 
+            <ul>
+                <li>If the browser shows a 404, the Synology NAS failed to push the file, or GitHub Pages was accidentally disabled in the repository settings.</li>
+                <li>If the browser shows the dashboard perfectly, TRMNL's Screenshot bot is experiencing a temporary timeout. Reboot the TRMNL device via their web interface.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <hr>
+
+    <h2>Replication Guide: Full System Setup</h2>
+    <p><em>If this system ever needs to be rebuilt from scratch, follow these exact steps to recreate the architecture.</em></p>
+
+    <h3>Phase 1: Synology Preparation</h3>
+    <p>The NAS must be configured to allow developer tools and SSH connections.</p>
+    <ol>
+        <li><strong>Install Packages:</strong> Open Synology <strong>Package Center</strong>. Install <strong>Git Server</strong> and <strong>Text Editor</strong>.</li>
+        <li><strong>Enable User Home:</strong> Open <strong>Control Panel</strong> &gt; <strong>User &amp; Group</strong> &gt; <strong>Advanced</strong>. Scroll down and check <strong>Enable user home service</strong>. <em>(Crucial: This creates the hidden <code>~/.ssh</code> directory needed for security keys).</em></li>
+        <li><strong>Enable SSH:</strong> Open <strong>Control Panel</strong> &gt; <strong>Terminal &amp; SNMP</strong>. Check <strong>Enable SSH service</strong> (Port 22).</li>
+    </ol>
+
+    <h3>Phase 2: GitHub Repository Setup</h3>
+    <ol>
+        <li>Log into GitHub and create a <strong>New Repository</strong>.</li>
+        <li>Name it exactly: <strong><code>weathernow</code></strong>.</li>
+        <li>Set it to <strong>Public</strong>.</li>
+        <li>⚠️ <strong>CRITICAL:</strong> Do NOT check "Add a README file". Leave the repository entirely blank. Click <strong>Create repository</strong>.</li>
+    </ol>
+
+    <h3>Phase 3: File Creation (Synology Web Interface)</h3>
+    <p>Using the Synology File Station ensures file encoding remains pure.</p>
+    <ol>
+        <li>Open <strong>File Station</strong>. Navigate to your <code>home</code> folder.</li>
+        <li>Create a folder named <code>scripts</code>. Inside <code>scripts</code>, create a folder named <code>weathernow</code>.<br>
+        <em>Your absolute working path is now:</em> <code>/var/services/homes/alex/scripts/weathernow/</code></li>
+        <li>Create the <strong>Python Script (<code>build.py</code>)</strong> and paste the generator code. <em>(Ensure the save path at the bottom of the python script strictly points to the absolute path above).</em></li>
+        <li>Create the <strong>Bash Script (<code>update.sh</code>)</strong> and paste the following:</li>
+    </ol>
+<pre><code class="language-bash">#!/bin/bash
+cd /var/services/homes/alex/scripts/weathernow/
+python3 build.py
+git add index.html README.md Readme.html
+git commit --amend --no-edit --allow-empty
+git push origin main --force
+</code></pre>
+
+    <h3>Phase 4: SSH Key Generation &amp; Permissions</h3>
+    <p>Your NAS must generate a secure key to push to GitHub without passwords.</p>
+    <ol>
+        <li>Open your Mac <strong>Terminal</strong>. SSH into the NAS:
+<pre><code class="language-bash">ssh alex@[your_nas_ip]</code></pre>
+        </li>
+        <li>Generate the key:
+<pre><code class="language-bash">ssh-keygen -t ed25519 -C "synology_weather"</code></pre>
+        <em>(Press Enter three times to accept defaults and skip passphrases).</em>
+        </li>
+        <li><strong>Fix Permissions:</strong> SSH requires strict ownership of private keys. Run these two commands to lock the folder down:
+<pre><code class="language-bash">chmod 700 ~/.ssh
+chmod 600 ~/.ssh/id_ed25519</code></pre>
+        </li>
+        <li><strong>Copy the Public Key:</strong>
+<pre><code class="language-bash">cat ~/.ssh/id_ed25519.pub</code></pre>
+        </li>
+        <li><strong>Add to GitHub:</strong> Copy the output. Go to your <code>weathernow</code> repository on GitHub &gt; <strong>Settings</strong> &gt; <strong>Deploy keys</strong> &gt; <strong>Add deploy key</strong>. Title it <code>Synology NAS</code>, paste the key, check <strong>Allow write access</strong>, and click Add.</li>
+    </ol>
+
+    <h3>Phase 5: Git Initialization &amp; First Push</h3>
+    <p>You must manually establish the Git connection for the first time. In your Mac Terminal, run these commands line by line:</p>
+<pre><code class="language-bash">cd /var/services/homes/alex/scripts/weathernow/
+
+# Generate the initial index.html
+python3 build.py
+
+# Configure local Git identity
+git config --global user.name "Synology Updater"
+git config --global user.email "bot@local"
+
+# Initialize repository
+git init
+git remote add origin git@github.com:alexroddie/weathernow.git
+
+# Track files
+git add index.html README.md Readme.html
+
+# Create the master commit
+git commit -m "Initial commit with docs"
+git branch -M main
+
+# Push to GitHub
+git push -u origin main
+</code></pre>
+    <p>⚠️ <strong>The Fingerprint Prompt:</strong> During the push, SSH will ask: <code>Are you sure you want to continue connecting?</code> You must type out the full word <strong><code>yes</code></strong> and hit Enter. Do not just hit Enter or type 'y', or the connection will abort.</p>
+
+    <h3>Phase 6: GitHub Pages &amp; Automation</h3>
+    <ol>
+        <li><strong>Activate GitHub Pages:</strong> Go to the <code>weathernow</code> repository on GitHub &gt; <strong>Settings</strong> &gt; <strong>Pages</strong>. Set Source to <strong>Deploy from a branch</strong>, select <strong>main</strong>, leave folder as <code>/ (root)</code>, and click <strong>Save</strong>.<br>
+        <em>(URL becomes: <code>https://alexroddie.github.io/weathernow/index.html</code>)</em></li>
+        <li><strong>Synology Automation:</strong> Open Synology <strong>Control Panel</strong> &gt; <strong>Task Scheduler</strong>.
+            <ul>
+                <li>Create a <strong>User-defined script</strong>.</li>
+                <li><strong>General:</strong> Name it <code>WeatherNow Updater</code>. Set User to <strong><code>alex</code></strong>.</li>
+                <li><strong>Schedule:</strong> Daily, Every 15 minutes.</li>
+                <li><strong>Task Settings:</strong> Paste: <code>bash /var/services/homes/alex/scripts/weathernow/update.sh</code></li>
+            </ul>
+        </li>
+        <li><strong>TRMNL Setup:</strong> Point the TRMNL Screenshot plugin to the GitHub Pages URL with a 15-minute refresh rate.</li>
+    </ol>
+</div>
+
+</body>
+</html>
